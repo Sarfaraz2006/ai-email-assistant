@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Email Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            padding: 10px;
+            padding-bottom: 80px; /* Space for chat button */
+        }
+
+        /* ==================== HEADER ==================== */
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: var(--primary);
+            font-size: clamp(1.5rem, 5vw, 2rem);
+            margin-bottom: 5px;
+        }
+
+        .header .status {
+            display: inline-block;
+            padding: 5px 12px;
+            background: var(--success);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* ==================== STATS GRID ==================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            cursor: pointer;
+        }
+
+        .stat-card:active {
+            transform: scale(0.95);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .stat-value {
+            font-size: clamp(1.5rem, 5vw, 2rem);
+            font-weight: bold;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+
+        /* ==================== TABS ==================== */
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            padding: 5px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        /* ==================== CONTENT CARD ==================== */
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .content-card.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==================== AI CHATBOT ==================== */
+        .chat-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.3s;
+        }
+
+        .chat-button:active {
+            transform: scale(0.9);
+        }
+
+        .chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: calc(100% - 40px);
+            max-width: 400px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            z-index: 999;
+            overflow: hidden;
+        }
+
+        .chat-window.show {
+            display: flex;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h3 {
+            font-size: 1.1rem;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f8fafc;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            display: flex;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .message.ai .message-content {
+            background: white;
+            color: var(--dark);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+
+        .chat-send {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* ==================== BUTTONS ==================== */
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+
+        .btn-group {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+
+        /* ==================== INFLUENCER LIST ==================== */
+        .influencer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .influencer-item {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+        }
+
+        .influencer-info {
+            flex: 1;
+        }
+
+        .influencer-name {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+
+        .influencer-meta {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-not-contacted { background: #fee2e2; color: #991b1b; }
+        .status-contacted { background: #dbeafe; color: #1e40af; }
+        .status-negotiation { background: #fef3c7; color: #92400e; }
+        .status-partnership { background: #d1fae5; color: #065f46; }
+
+        /* ==================== LOADING ==================== */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ==================== TOAST ==================== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 2000;
+            animation: slideInRight 0.3s;
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--danger); }
+        .toast.info { border-left: 4px solid var(--primary); }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 640px) {
+            body {
+                padding: 5px;
+                padding-bottom: 80px;
+            }
+            
+            .header, .content-card {
+                padding: 15px;
+            }
+            
+            .chat-window {
+                bottom: 90px;
+                right: 10px;
+                left: 10px;
+                width: calc(100% - 20px);
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>🤖 AI Email Assistant</h1>
+        <span class="status">● Live</span>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card" onclick="showToast('Total emails sent to influencers', 'info')">
+            <div class="stat-icon">📧</div>
+            <div class="stat-value" id="emailsSent">0</div>
+            <div class="stat-label">Emails Sent</div>
+        </div>
+        <div class="stat-card" onclick="showToast('Influencers who replied', 'info')">
+            <div class="stat-icon">💬</div>
+            <div class="stat-value" id="repliesReceived">0</div>
+            <div class="stat-label">Replies</div>
+        </div>
+        <div class="stat-card" onclick="showToast('Confirmed partnerships', 'info')">
+            <div class="stat-icon">🤝</div>
+            <div class="stat-value" id="partnershipsFormed">0</div>
+            <div class="stat-label">Partnerships</div>
+        </div>
+        <div class="stat-card" onclick="showToast('Percentage of replies received', 'info')">
+            <div class="stat-icon">📊</div>
+            <div class="stat-value" id="responseRate">0%</div>
+            <div class="stat-label">Response Rate</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('dashboard')">🏠 Dashboard</button>
+        <button class="tab" onclick="switchTab('influencers')">👥 Influencers</button>
+        <button class="tab" onclick="switchTab('campaign')">🚀 Campaign</button>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="dashboard-content" class="content-card active">
+        <h2 style="margin-bottom: 15px;">Quick Actions</h2>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="startCampaign()">🚀 Start Campaign</button>
+            <button class="btn btn-primary" onclick="checkReplies()">🔄 Check Replies</button>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #64748b;">Processing...</p>
+        </div>
+    </div>
+
+    <!-- Influencers Tab -->
+    <div id="influencers-content" class="content-card">
+        <h2 style="margin-bottom: 15px;">Influencers (<span id="influencerCount">0</span>)</h2>
+        <div class="influencer-list" id="influencerList">
+            <!-- Will be populated by JS -->
+        </div>
+    </div>
+
+    <!-- Campaign Tab -->
+    <div id="campaign-content" class="content-card">
+        <h2 style="margin-bottom: 15px;">Campaign Settings</h2>
+        <p style="color: #64748b; margin-bottom: 15px;">Use the AI chat to start and manage campaigns easily!</p>
+        <button class="btn btn-primary" onclick="toggleChat()">💬 Open AI Chat</button>
+    </div>
+
+    <!-- AI Chat Button -->
+    <button class="chat-button" onclick="toggleChat()">🤖</button>
+
+    <!-- AI Chat Window -->
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <h3>AI Assistant</h3>
+            <button class="chat-close" onclick="toggleChat()">×</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="message-content">
+                    👋 Hi! I'm your AI email assistant. I can help you:
+                    <br><br>
+                    • Check campaign statistics
+                    • Send emails to influencers  
+                    • Monitor replies
+                    • Answer questions
+                    <br><br>
+                    Try asking: "How many emails have been sent?" or "Start a campaign"
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Ask me anything..." 
+                   onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="chat-send" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // ==================== STATE MANAGEMENT ====================
+        let appState = {
+            stats: {
+                emailsSent: 0,
+                repliesReceived: 0,
+                partnershipsFormed: 0,
+                responseRate: 0
+            },
+            influencers: [],
+            chatOpen: false
+        };
+
+        // ==================== API BASE URL ====================
+        // Change this to your Oracle Cloud VPS IP
+        const API_BASE = window.location.origin;  // For development
+        // const API_BASE = 'http://YOUR_ORACLE_CLOUD_IP:5000';  // For production
+
+        // ==================== INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadInfluencers();
+            
+            // Refresh stats every 30 seconds
+            setInterval(loadStats, 30000);
+        });
+
+        // ==================== API CALLS ====================
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data && method !== 'GET') {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                return await response.json();
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function loadStats() {
+            const result = await apiCall('/api/stats');
+            if (result.success) {
+                appState.stats = result.data;
+                updateStatsUI();
+            }
+        }
+
+        async function loadInfluencers() {
+            const result = await apiCall('/api/influencers');
+            if (result.success) {
+                appState.influencers = result.data;
+                updateInfluencersUI();
+            }
+        }
+
+        async function sendChatMessage(message) {
+            const result = await apiCall('/api/chat', 'POST', { message });
+            return result;
+        }
+
+        async function checkReplies() {
+            showLoading(true);
+            const result = await apiCall('/api/check-replies', 'POST');
+            showLoading(false);
+            
+            if (result.success) {
+                if (result.found_replies) {
+                    showToast(result.message, 'success');
+                } else {
+                    showToast(result.message, 'info');
+                }
+                loadStats();
+                loadInfluencers();
+            } else {
+                showToast('Error checking replies', 'error');
+            }
+        }
+
+        // ==================== UI UPDATES ====================
+        function updateStatsUI() {
+            document.getElementById('emailsSent').textContent = appState.stats.emailsSent || 0;
+            document.getElementById('repliesReceived').textContent = appState.stats.repliesReceived || 0;
+            document.getElementById('partnershipsFormed').textContent = appState.stats.partnershipsFormed || 0;
+            document.getElementById('responseRate').textContent = (appState.stats.response_rate || 0).toFixed(1) + '%';
+        }
+
+        function updateInfluencersUI() {
+            const list = document.getElementById('influencerList');
+            list.innerHTML = '';
+            
+            document.getElementById('influencerCount').textContent = appState.influencers.length;
+            
+            appState.influencers.forEach(inf => {
+                const statusClass = `status-${inf.status.replace('_', '-')}`;
+                const statusText = inf.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                
+                const item = document.createElement('div');
+                item.className = 'influencer-item';
+                item.innerHTML = `
+                    <div class="influencer-info">
+                        <div class="influencer-name">@${inf.name}</div>
+                        <div class="influencer-meta">${inf.followers} • ${inf.niche}</div>
+                    </div>
+                    <div class="status-badge ${statusClass}">${statusText}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // ==================== CHAT FUNCTIONS ====================
+        function toggleChat() {
+            appState.chatOpen = !appState.chatOpen;
+            document.getElementById('chatWindow').classList.toggle('show', appState.chatOpen);
+            
+            if (appState.chatOpen) {
+                document.getElementById('chatInput').focus();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessageToChat(message, 'user');
+            input.value = '';
+            
+            // Show typing indicator
+            const typingDiv = addMessageToChat('Typing...', 'ai', 'typing-indicator');
+            
+            // Send to AI
+            const result = await sendChatMessage(message);
+            
+            // Remove typing indicator
+            typingDiv.remove();
+            
+            // Add AI response
+            if (result.success) {
+                addMessageToChat(result.response, 'ai');
+                
+                // Refresh stats if relevant command
+                if (message.toLowerCase().includes('email') || message.toLowerCase().includes('campaign')) {
+                    loadStats();
+                    loadInfluencers();
+                }
+            } else {
+                addMessageToChat('Sorry, I encountered an error. Please try again.', 'ai');
+            }
+        }
+
+        function addMessageToChat(text, sender, extraClass = '') {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender} ${extraClass}`;
+            messageDiv.innerHTML = `<div class="message-content">${text}</div>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return messageDiv;
+        }
+
+        // ==================== OTHER FUNCTIONS ====================
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.content-card').forEach(card => card.classList.remove('active'));
+            document.getElementById(`${tabName}-content`).classList.add('active');
+        }
+
+        function startCampaign() {
+            showToast('Use the AI chat to start a campaign! Try asking: "Start a campaign to 5 influencers"', 'info');
+            toggleChat();
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
